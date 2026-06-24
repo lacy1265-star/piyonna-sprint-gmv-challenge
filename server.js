@@ -4,11 +4,6 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const UPPROMOTE_API_KEY = process.env.UPPROMOTE_API_KEY;
-
-if (!UPPROMOTE_API_KEY) {
-  console.warn('WARNING: UPPROMOTE_API_KEY is not set!');
-}
 
 app.use(cors());
 app.use(express.static(__dirname));
@@ -17,108 +12,34 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-function maskName(name) {
-  if (!name || name.trim() === '') return '***';
-  const trimmed = name.trim();
-  return trimmed.length <= 3 ? trimmed : trimmed.slice(0, 3) + '***';
-}
+app.get('/api/dashboard', (req, res) => {
+  const goal = 3000;
 
-async function fetchReferrals(fromDate, toDate, page = 1) {
-  const params = new URLSearchParams({
-    page,
-    per_page: 100,
-    from_date: fromDate,
-    to_date: toDate
+  // MANUAL_GMV: 총 GMV 숫자
+  // 예: 245.50
+  const totalGMV = parseFloat(process.env.MANUAL_GMV || '0');
+
+  // MANUAL_RANKING: 이름:금액 쉼표로 구분
+  // 예: Giovanni B***:58.84,Jasmine G***:33.47,Marco F***:25.45
+  const rankingRaw = process.env.MANUAL_RANKING || '';
+  const ranking = rankingRaw
+    .split(',')
+    .map(item => item.trim())
+    .filter(item => item.includes(':'))
+    .map((item, i) => {
+      const lastColon = item.lastIndexOf(':');
+      const name = item.slice(0, lastColon).trim();
+      const gmv = parseFloat(item.slice(lastColon + 1).trim()) || 0;
+      return { rank: i + 1, name, gmv };
+    })
+    .filter(a => a.gmv > 0);
+
+  res.json({
+    totalGMV,
+    goal,
+    ranking,
+    updatedAt: new Date().toISOString()
   });
-
-  const res = await fetch(`https://aff-api.uppromote.com/api/v2/referrals?${params}`, {
-    headers: {
-      'Authorization': UPPROMOTE_API_KEY,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Uppromote API error ${res.status}: ${text}`);
-  }
-  return res.json();
-}
-
-app.get('/api/dashboard', async (req, res) => {
-  if (!UPPROMOTE_API_KEY) {
-    return res.status(500).json({ error: 'UPPROMOTE_API_KEY not configured' });
-  }
-
-  try {
-    // 날짜를 URL 파라미터로 받을 수 있음
-    // 예: /api/dashboard?from=2026-06-17&to=2026-06-23
-    const fromDate = req.query.from
-      ? `${req.query.from}T00:00:00Z`
-      : `${process.env.CHALLENGE_FROM || '2026-06-17'}T00:00:00Z`;
-    const toDate = req.query.to
-      ? `${req.query.to}T23:59:59Z`
-      : `${process.env.CHALLENGE_TO || '2026-06-23'}T23:59:59Z`;
-
-    let allReferrals = [];
-    let page = 1;
-    while (true) {
-      const data = await fetchReferrals(fromDate, toDate, page);
-      const items = data.data || [];
-      allReferrals = allReferrals.concat(items);
-      if (items.length < 100) break;
-      page++;
-    }
-
-    // approved + pending만 포함, denied/cancelled 제외
-    // tracking_type이 "Manual" 또는 "Import"인 것도 제외
-    const counted = allReferrals.filter(r => {
-      if (r.status !== 'approved' && r.status !== 'pending') return false;
-      const tt = (r.tracking_type || '').toLowerCase();
-      if (tt.includes('manual') || tt.includes('import')) return false;
-      return true;
-    });
-
-    const totalGMV = counted.reduce((sum, r) => sum + parseFloat(r.total_sales || 0), 0);
-
-    const affiliateMap = {};
-    for (const r of counted) {
-      const aff = r.affiliate;
-      if (!aff) continue;
-      const key = aff.email;
-      if (!affiliateMap[key]) {
-        const firstName = maskName(aff.first_name || '');
-        const lastName = maskName(aff.last_name || '');
-        affiliateMap[key] = {
-          name: `${firstName} ${lastName}`.trim(),
-          gmv: 0,
-          orders: 0
-        };
-      }
-      affiliateMap[key].gmv += parseFloat(r.total_sales || 0);
-      affiliateMap[key].orders += 1;
-    }
-
-    const ranking = Object.values(affiliateMap)
-      .filter(a => a.gmv > 0)
-      .sort((a, b) => b.gmv - a.gmv)
-      .slice(0, 10)
-      .map((a, i) => ({ rank: i + 1, ...a, gmv: Math.round(a.gmv * 100) / 100 }));
-
-    res.json({
-      totalGMV: Math.round(totalGMV * 100) / 100,
-      goal: 3000,
-      ranking,
-      fromDate,
-      toDate,
-      updatedAt: new Date().toISOString()
-    });
-
-  } catch (err) {
-    console.error('Dashboard error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
