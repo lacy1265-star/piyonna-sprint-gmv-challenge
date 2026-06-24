@@ -6,10 +6,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const UPPROMOTE_API_KEY = process.env.UPPROMOTE_API_KEY;
 
+if (!UPPROMOTE_API_KEY) {
+  console.warn('WARNING: UPPROMOTE_API_KEY is not set!');
+}
+
 app.use(cors());
 app.use(express.static(path.join(__dirname)));
 
-// Uppromote API helper
 async function fetchReferrals(fromDate, toDate, page = 1) {
   const params = new URLSearchParams({
     page,
@@ -26,17 +29,22 @@ async function fetchReferrals(fromDate, toDate, page = 1) {
     }
   });
 
-  if (!res.ok) throw new Error(`Uppromote API error: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Uppromote API error ${res.status}: ${text}`);
+  }
   return res.json();
 }
 
-// /api/dashboard — GMV + ranking
 app.get('/api/dashboard', async (req, res) => {
+  if (!UPPROMOTE_API_KEY) {
+    return res.status(500).json({ error: 'UPPROMOTE_API_KEY not configured in Railway Variables' });
+  }
+
   try {
     const fromDate = '2026-06-24T00:00:00Z';
     const toDate   = '2026-06-30T23:59:59Z';
 
-    // Fetch all pages
     let allReferrals = [];
     let page = 1;
     while (true) {
@@ -47,13 +55,10 @@ app.get('/api/dashboard', async (req, res) => {
       page++;
     }
 
-    // Only count approved referrals
     const approved = allReferrals.filter(r => r.status === 'approved');
 
-    // Total GMV
     const totalGMV = approved.reduce((sum, r) => sum + parseFloat(r.total_sales || 0), 0);
 
-    // Per-affiliate GMV
     const affiliateMap = {};
     for (const r of approved) {
       const aff = r.affiliate;
@@ -71,7 +76,6 @@ app.get('/api/dashboard', async (req, res) => {
       affiliateMap[key].orders += 1;
     }
 
-    // Ranking (top 10)
     const ranking = Object.values(affiliateMap)
       .sort((a, b) => b.gmv - a.gmv)
       .slice(0, 10)
@@ -85,7 +89,7 @@ app.get('/api/dashboard', async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('Dashboard error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
