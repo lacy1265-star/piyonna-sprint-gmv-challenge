@@ -17,6 +17,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+function maskName(name) {
+  if (!name || name.trim() === '') return '***';
+  const trimmed = name.trim();
+  return trimmed.length <= 3 ? trimmed : trimmed.slice(0, 3) + '***';
+}
+
 async function fetchReferrals(fromDate, toDate, page = 1) {
   const params = new URLSearchParams({
     page,
@@ -47,7 +53,7 @@ app.get('/api/dashboard', async (req, res) => {
 
   try {
     const fromDate = '2026-06-17T00:00:00Z';
-    const toDate   = '2026-06-24T23:59:59Z';
+    const toDate   = '2026-06-23T23:59:59Z';
 
     let allReferrals = [];
     let page = 1;
@@ -59,18 +65,23 @@ app.get('/api/dashboard', async (req, res) => {
       page++;
     }
 
-    const approved = allReferrals.filter(r => r.status === 'approved');
-    const totalGMV = approved.reduce((sum, r) => sum + parseFloat(r.total_sales || 0), 0);
+    // Include both approved and pending (exclude denied/cancelled)
+    const counted = allReferrals.filter(r =>
+      r.status === 'approved' || r.status === 'pending'
+    );
+
+    const totalGMV = counted.reduce((sum, r) => sum + parseFloat(r.total_sales || 0), 0);
 
     const affiliateMap = {};
-    for (const r of approved) {
+    for (const r of counted) {
       const aff = r.affiliate;
       if (!aff) continue;
       const key = aff.email;
       if (!affiliateMap[key]) {
+        const firstName = maskName(aff.first_name || '');
+        const lastName = maskName(aff.last_name || '');
         affiliateMap[key] = {
-          name: `${aff.first_name} ${aff.last_name}`.trim() || aff.email,
-          email: aff.email,
+          name: `${firstName} ${lastName}`.trim(),
           gmv: 0,
           orders: 0
         };
