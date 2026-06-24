@@ -52,8 +52,14 @@ app.get('/api/dashboard', async (req, res) => {
   }
 
   try {
-    const fromDate = '2026-06-17T00:00:00Z';
-    const toDate   = '2026-06-23T23:59:59Z';
+    // 날짜를 URL 파라미터로 받을 수 있음
+    // 예: /api/dashboard?from=2026-06-17&to=2026-06-23
+    const fromDate = req.query.from
+      ? `${req.query.from}T00:00:00Z`
+      : `${process.env.CHALLENGE_FROM || '2026-06-17'}T00:00:00Z`;
+    const toDate = req.query.to
+      ? `${req.query.to}T23:59:59Z`
+      : `${process.env.CHALLENGE_TO || '2026-06-23'}T23:59:59Z`;
 
     let allReferrals = [];
     let page = 1;
@@ -65,10 +71,14 @@ app.get('/api/dashboard', async (req, res) => {
       page++;
     }
 
-    // Include both approved and pending (exclude denied/cancelled)
-    const counted = allReferrals.filter(r =>
-      r.status === 'approved' || r.status === 'pending'
-    );
+    // approved + pending만 포함, denied/cancelled 제외
+    // tracking_type이 "Manual" 또는 "Import"인 것도 제외
+    const counted = allReferrals.filter(r => {
+      if (r.status !== 'approved' && r.status !== 'pending') return false;
+      const tt = (r.tracking_type || '').toLowerCase();
+      if (tt.includes('manual') || tt.includes('import')) return false;
+      return true;
+    });
 
     const totalGMV = counted.reduce((sum, r) => sum + parseFloat(r.total_sales || 0), 0);
 
@@ -91,6 +101,7 @@ app.get('/api/dashboard', async (req, res) => {
     }
 
     const ranking = Object.values(affiliateMap)
+      .filter(a => a.gmv > 0)
       .sort((a, b) => b.gmv - a.gmv)
       .slice(0, 10)
       .map((a, i) => ({ rank: i + 1, ...a, gmv: Math.round(a.gmv * 100) / 100 }));
@@ -99,6 +110,8 @@ app.get('/api/dashboard', async (req, res) => {
       totalGMV: Math.round(totalGMV * 100) / 100,
       goal: 3000,
       ranking,
+      fromDate,
+      toDate,
       updatedAt: new Date().toISOString()
     });
 
