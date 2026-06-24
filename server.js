@@ -11,7 +11,11 @@ if (!UPPROMOTE_API_KEY) {
 }
 
 app.use(cors());
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(__dirname));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 async function fetchReferrals(fromDate, toDate, page = 1) {
   const params = new URLSearchParams({
@@ -38,7 +42,7 @@ async function fetchReferrals(fromDate, toDate, page = 1) {
 
 app.get('/api/dashboard', async (req, res) => {
   if (!UPPROMOTE_API_KEY) {
-    return res.status(500).json({ error: 'UPPROMOTE_API_KEY not configured in Railway Variables' });
+    return res.status(500).json({ error: 'UPPROMOTE_API_KEY not configured' });
   }
 
   try {
@@ -56,7 +60,6 @@ app.get('/api/dashboard', async (req, res) => {
     }
 
     const approved = allReferrals.filter(r => r.status === 'approved');
-
     const totalGMV = approved.reduce((sum, r) => sum + parseFloat(r.total_sales || 0), 0);
 
     const affiliateMap = {};
