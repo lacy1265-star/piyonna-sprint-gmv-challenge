@@ -46,8 +46,8 @@ app.get('/api/dashboard', async (req, res) => {
   }
 
   try {
-    const fromDate = '2026-06-24T00:00:00Z';
-    const toDate   = '2026-06-30T23:59:59Z';
+    const fromDate = '2026-06-17T00:00:00Z';
+    const toDate   = '2026-06-24T23:59:59Z';
 
     let allReferrals = [];
     let page = 1;
