@@ -460,10 +460,11 @@ async function loadDashboard() {
         if (gmvEl) gmvEl.textContent = '€' + aff.gmv.toLocaleString('en-EU', {minimumFractionDigits:2, maximumFractionDigits:2});
         if (barEl) {
           if (aff.gmv > 0 && topGMV > 0) {
-            barEl.style.display = 'block';
+            barEl.style.display = '';
             barEl.style.width = Math.round((aff.gmv / topGMV) * 100) + '%';
+            barEl.parentElement.style.display = '';
           } else {
-            barEl.style.display = 'none';
+            barEl.parentElement.style.display = 'none';
           }
         }
       } else {
