@@ -419,7 +419,7 @@ footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-si
 </div>
 
 <footer>
-  <p>© 2025 Piyonna · Authentic K-beauty, shipped to Europe 🌿 · Questions? <a href="https://discord.gg/xqYJRmVfQW" style="color:var(--accent)">Discord</a></p>
+  <p>© 2026 Piyonna · Authentic K-beauty, shipped to Europe 🌿 · Questions? <a href="https://discord.gg/xqYJRmVfQW" style="color:var(--accent)">Discord</a></p>
 </footer>
 
 <script>
@@ -442,7 +442,7 @@ async function loadDashboard() {
     const pct = Math.min(Math.round((gmv / goal) * 100), 100);
     document.getElementById('prog-fill').style.width = pct + '%';
     document.getElementById('gmv-pct').textContent = pct + '% of goal';
-    document.getElementById('gmv-val').textContent = '€' + gmv.toLocaleString('en-EU', {minimumFractionDigits:0, maximumFractionDigits:0});
+    document.getElementById('gmv-val').textContent = '€' + gmv.toLocaleString('en-EU', {minimumFractionDigits:2, maximumFractionDigits:2});
 
     // Ranking
     const prizes = ['🥇 MacBook Air', '🥈 Dyson Airwrap', '🥉 AirPods Pro'];
@@ -456,8 +456,15 @@ async function loadDashboard() {
       const topGMV = ranking[0] ? ranking[0].gmv : 1;
       if (aff) {
         if (nameEl) nameEl.textContent = aff.name;
-        if (gmvEl) gmvEl.textContent = '€' + Math.round(aff.gmv).toLocaleString();
-        if (barEl) barEl.style.width = Math.round((aff.gmv / topGMV) * 100) + '%';
+        if (gmvEl) gmvEl.textContent = '€' + aff.gmv.toLocaleString('en-EU', {minimumFractionDigits:2, maximumFractionDigits:2});
+        if (barEl) {
+          if (aff.gmv > 0 && topGMV > 0) {
+            barEl.style.width = Math.round((aff.gmv / topGMV) * 100) + '%';
+          } else {
+            barEl.style.width = '0%';
+            barEl.parentElement.style.display = 'none';
+          }
+        }
       }
     });
 
