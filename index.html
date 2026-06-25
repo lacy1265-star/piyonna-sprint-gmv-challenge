@@ -455,16 +455,19 @@ async function loadDashboard() {
       const barEl = row.querySelector('.rank-bar-fill');
       const topGMV = ranking[0] ? ranking[0].gmv : 1;
       if (aff) {
+        row.style.display = 'flex';
         if (nameEl) nameEl.textContent = aff.name;
         if (gmvEl) gmvEl.textContent = '€' + aff.gmv.toLocaleString('en-EU', {minimumFractionDigits:2, maximumFractionDigits:2});
         if (barEl) {
           if (aff.gmv > 0 && topGMV > 0) {
+            barEl.style.display = 'block';
             barEl.style.width = Math.round((aff.gmv / topGMV) * 100) + '%';
           } else {
-            barEl.style.width = '0%';
-            barEl.parentElement.style.display = 'none';
+            barEl.style.display = 'none';
           }
         }
+      } else {
+        row.style.display = 'none';
       }
     });
 
